@@ -1,0 +1,23 @@
+module NeRFCaptureData
+{
+    @final
+    struct NeRFCaptureFrame
+    {
+      @key
+      uint32 id;
+      double timestamp;
+      float fl_x;
+      float fl_y;
+      float cx;
+      float cy;
+      float transform_matrix[16];
+      uint32 width;
+      uint32 height;
+      sequence<octet> image;
+      boolean has_depth;
+      uint32 depth_width;
+      uint32 depth_height;
+      float depth_scale;
+      sequence<octet> depth_image;
+    };
+};
