@@ -21,7 +21,7 @@ struct ARViewContainer: UIViewRepresentable {
         let configuration = viewModel.createARConfiguration()
         configuration.worldAlignment = .gravity
         configuration.isAutoFocusEnabled = true
-        configuration.videoFormat = ARWorldTrackingConfiguration.supportedVideoFormats[4] // 1280x720
+//        configuration.videoFormat = ARWorldTrackingConfiguration.supportedVideoFormats[4] // 1280x720
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             viewModel.appState.supportsDepth = true
         }

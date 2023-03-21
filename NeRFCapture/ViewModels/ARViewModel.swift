@@ -45,12 +45,20 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
             .sink { x in
                 switch x {
                 case .Offline:
+//                    self.appState.stream = false
                     print("Changed to offline")
                 case .Online:
                     print("Changed to online")
                 }
             }
             .store(in: &cancellables)
+        
+//        frameSubject.throttle(for: 0.5, scheduler: RunLoop.main, latest: true).sink {
+//            f in
+//            if self.appState.stream && self.appState.appMode == .Online {
+//                self.ddsWriter.writeFrameToTopic(frame: f)
+//            }
+//        }.store(in: &cancellables)
     }
     
     

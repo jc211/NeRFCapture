@@ -32,6 +32,7 @@ struct DDSState {
 class DDSWriter {
     var dds = DDSState()
     let rgbConverter = YUVToRGBFilter()
+    var counter = 0
     @Published var peers: UInt32 = 0
    
     func buildConfig() -> String {
@@ -75,7 +76,11 @@ class DDSWriter {
         }
         
         // Setup Project Topic
-        dds.topic = dds_create_topic(dds.participant!, NeRFCaptureData_NeRFCaptureFrame_desc_ptr, dds.topic_name, nil, nil)
+        withUnsafePointer(to: NeRFCaptureData_NeRFCaptureFrame_desc) { descPtr in
+            dds.topic = dds_create_topic(dds.participant!, descPtr, dds.topic_name, nil, nil)
+        }
+//        dds.topic = dds_create_topic(dds.participant!, &NeRFCaptureData_NeRFCaptureFrame_desc, dds.topic_name, nil, nil)
+//        dds.topic = dds_create_topic(dds.participant!, NeRFCaptureData_NeRFCaptureFrame_desc_ptr, dds.topic_name, nil, nil)
         
         if(dds.topic! < 0) {
             print("Could not create topic")
@@ -83,7 +88,13 @@ class DDSWriter {
         }
         
         dds.qos = dds_create_qos()
-        dds_qset_reliability(dds.qos, DDS_RELIABILITY_RELIABLE, 1 * 1000000000)
+        dds_qset_resource_limits(
+            dds.qos,
+            2,
+            2,
+            2
+        )
+//        dds_qset_reliability(dds.qos, DDS_RELIABILITY_RELIABLE, 1 * 1000000000)
         
         dds.writer = dds_create_writer(dds.participant!, dds.topic!, dds.qos!, dds.listener)
         if(dds.writer! < 0) {
@@ -119,8 +130,9 @@ class DDSWriter {
             print("\(depth_width)x\(depth_height) - size = \(depth_data._length)")
             depth_data._buffer = CVPixelBufferGetBaseAddress(frame.sceneDepth!.depthMap)!.bindMemory(to: UInt8.self, capacity: 1)
         }
+        counter += 1
         var msg = NeRFCaptureData_NeRFCaptureFrame(
-            id: 1,
+            id: UInt32(counter),
             timestamp: frame.timestamp,
             fl_x: flX,
             fl_y: flY,

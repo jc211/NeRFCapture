@@ -9,9 +9,8 @@
 #define CycloneDDS_Bridging_Header_h
 
 #include <dds/dds.h>
-
 #include "NeRFCaptureData.h"
 
-extern const dds_topic_descriptor_t* NeRFCaptureData_NeRFCaptureFrame_desc_ptr = &NeRFCaptureData_NeRFCaptureFrame_desc;
+//const dds_topic_descriptor_t* NeRFCaptureData_NeRFCaptureFrame_desc_ptr = &NeRFCaptureData_NeRFCaptureFrame_desc;
 
 #endif /* CycloneDDS_Bridging_Header_h */

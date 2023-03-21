@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Abou-Chakra"
+  given-names: "Jad"
+  orcid: "https://orcid.org/0000-0002-9122-3132"
+title: "NeRFCapture: A tool for streaming posed images"
+version: 1.0.0
+url: "https://github.com/jc211/NeRFCapture"

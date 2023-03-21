@@ -18,8 +18,6 @@ Switch the app to online mode. On the computer running InstantNGP, make sure tha
 
 ```
 pip install cyclonedds
-pip install opencv-python
-pip install Pillow
 ```
 
 Check that the computer can see the device on your network by running in your terminal:
@@ -28,16 +26,18 @@ Check that the computer can see the device on your network by running in your te
 cyclonedds ps
 ```
 
-To get started, copy one of the scripts in nerfcapture/scripts to instant_ngp/scripts where pyngp can be imported. Run the script in the same way you would run the run.py that comes with InstantNGP. Wait until NeRFCapture displays that a connection has been established (This can take a few seconds). You can press the Send button to publish the current frame to InstantNGP. You have to press the send button everytime you want to capture another frame. Automatic streaming is not yet enabled. Note that it may take up to half a second for your image to transfer depending on your network.
+Instructions found in [here](https://github.com/NVlabs/instant-ngp/blob/master/docs/nerf_dataset_tips.md#NeRFCapture)
 
-There are two scripts made available. The first nerfcapture_stream, will build the NeRF with new images while your session is running. The second will simply capture your frames and save them to a dataset. You can then drag that dataset into InstantNGP.
 
 ## Offline Mode
 
-In Offline mode, clicking start initializes the dataset. Take a few images then click End when you're done. The dataset can be found as a zip file in your Files App in the format that InstantNGP expects. Unzip the dataset and drag and drop it into InstantNGP. We have found it farely difficult to get files transferred from an iOS device to another computer so we recommend running the app in Online mode and collecting the dataset with the nerfcapture_dataset.py script.
+In Offline mode, clicking start initializes the dataset. Take a few images then click End when you're done. The dataset can be found as a zip file in your Files App in the format that InstantNGP expects. Unzip the dataset and drag and drop it into InstantNGP. We have found it farely difficult to get files transferred from an iOS device to another computer so we recommend running the app in Online mode and collecting the dataset with the nerfcapture2nerf.py script found in InstantNGP.
 
 <img src="docs/assets_readme/NeRFCaptureFile1.png" height="342"/>
 <img src="docs/assets_readme/NeRFCaptureFile2.png" height="342"/>
+
+
+If you use this software in your research, please consider citing it. 
 
 
 
