@@ -26,17 +26,7 @@ Check that the computer can see the device on your network by running in your te
 cyclonedds ps
 ```
 
-<<<<<<< HEAD
 Instructions found in [here](https://github.com/NVlabs/instant-ngp/blob/master/docs/nerf_dataset_tips.md#NeRFCapture)
-=======
-Lastly increase the receive buffer size to get the messages across faster:
-```
-sudo sysctl -w net.core.rmem_max=2147483647
-```
-See [here](https://docs.ros.org/en/rolling/How-To-Guides/DDS-tuning.html#cyclone-dds-tuning) for details.
-
-To get started, copy one of the scripts in nerfcapture/scripts to instant_ngp/scripts where pyngp can be imported. Run the script in the same way you would run the run.py that comes with InstantNGP. Wait until NeRFCapture displays that a connection has been established (This can take a few seconds). You can press the Send button to publish the current frame to InstantNGP. You have to press the send button everytime you want to capture another frame. Automatic streaming is not yet enabled. Note that it may take up to half a second for your image to transfer depending on your network.
->>>>>>> bc432e7db60bf4b639f53296fbb9c28ae8ad1643
 
 
 ## Offline Mode
