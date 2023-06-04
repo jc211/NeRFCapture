@@ -1,5 +1,10 @@
 module NeRFCaptureData
 {
+    enum ImageFormat {
+        RGB,
+        YUV
+    };
+    
     @final
     struct NeRFCaptureFrame
     {
@@ -13,11 +18,60 @@ module NeRFCaptureData
       float transform_matrix[16];
       uint32 width;
       uint32 height;
+      ImageFormat format;
       sequence<octet> image;
       boolean has_depth;
       uint32 depth_width;
       uint32 depth_height;
       float depth_scale;
       sequence<octet> depth_image;
+    };
+    
+    @final
+    struct Pose {
+      @key
+      uint32 id;
+      double timestamp;
+      float fl_x;
+      float fl_y;
+      float cx;
+      float cy;
+      float transform_matrix[16];
+    };
+};
+
+module VideoMessages {
+    enum EncodingType {
+        H264,
+        HEVC
+    };
+
+    @final
+    struct Extrinsics {
+        float transform_matrix[16];
+    };
+
+    @final
+    struct Intrinsics {
+        float fl_x;
+        float fl_y;
+        float cx;
+        float cy;
+    };
+
+    @final
+    struct PosedVideoFrame {
+        @key
+        uint32 stream_id;
+        boolean is_keyframe;
+        double timestamp;
+        sequence<octet> nalus;
+        float transform_matrix[16];
+        float fl_x;
+        float fl_y;
+        float cx;
+        float cy;
+        uint32 width;
+        uint32 height;
     };
 };

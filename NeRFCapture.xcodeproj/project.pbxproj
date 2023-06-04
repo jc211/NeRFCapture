@@ -14,6 +14,7 @@
 		0539EAB12965458E00C51AB9 /* Zip in Frameworks */ = {isa = PBXBuildFile; productRef = 0539EAB02965458E00C51AB9 /* Zip */; };
 		0539EAB429654B0400C51AB9 /* cyclonedds in Frameworks */ = {isa = PBXBuildFile; productRef = 0539EAB329654B0400C51AB9 /* cyclonedds */; };
 		057A7AA82950092E000692A0 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 057A7AA72950092E000692A0 /* Shaders.metal */; };
+		05D34E2829FD398B006BBA81 /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D34E2729FD398B006BBA81 /* VideoEncoder.swift */; };
 		C0C52A90287E7F940011820F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C52A8F287E7F940011820F /* AppDelegate.swift */; };
 		C0C52A92287E7F940011820F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C52A91287E7F940011820F /* ContentView.swift */; };
 		C0C52A96287E7F960011820F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C0C52A95287E7F960011820F /* Assets.xcassets */; };
@@ -47,6 +48,7 @@
 		0512301E29499F50003915D9 /* NeRFCaptureData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NeRFCaptureData.h; sourceTree = "<group>"; };
 		052D2374287FD53A0083DC5B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		057A7AA72950092E000692A0 /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		05D34E2729FD398B006BBA81 /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		C0C52A8C287E7F940011820F /* NeRFCapture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeRFCapture.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0C52A8F287E7F940011820F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C0C52A91287E7F940011820F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				057A7AA72950092E000692A0 /* Shaders.metal */,
 				050A8EF9296E738200C5C638 /* DatasetWriter.swift */,
 				050A8EFB296E8B8E00C5C638 /* DDSWriter.swift */,
+				05D34E2729FD398B006BBA81 /* VideoEncoder.swift */,
 			);
 			path = NeRFCapture;
 			sourceTree = "<group>";
@@ -256,6 +259,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05D34E2829FD398B006BBA81 /* VideoEncoder.swift in Sources */,
 				C0C52AAA287EC2470011820F /* ARViewContainer.swift in Sources */,
 				050A8EFA296E738300C5C638 /* DatasetWriter.swift in Sources */,
 				C0C52A92287E7F940011820F /* ContentView.swift in Sources */,
@@ -412,12 +416,12 @@
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = au.edu.qcr.NeRFCapture;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -454,12 +458,12 @@
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = au.edu.qcr.NeRFCapture;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

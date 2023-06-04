@@ -18,20 +18,14 @@ struct ARViewContainer: UIViewRepresentable {
     
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
-        let configuration = viewModel.createARConfiguration()
-        configuration.worldAlignment = .gravity
-        configuration.isAutoFocusEnabled = true
-//        configuration.videoFormat = ARWorldTrackingConfiguration.supportedVideoFormats[4] // 1280x720
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
-            viewModel.appState.supportsDepth = true
-        }
+#if targetEnvironment(simulator)
+#else
         arView.debugOptions = [.showWorldOrigin]
-        #if !targetEnvironment(simulator)
-        arView.session.run(configuration)
-        #endif
         arView.session.delegate = viewModel
         viewModel.session = arView.session
         viewModel.arView = arView
+        viewModel.setup()
+#endif
         return arView
     }
     

@@ -10,83 +10,218 @@ import Zip
 import Combine
 import ARKit
 import RealityKit
+import SwiftUI
+
 
 enum AppError : Error {
     case projectAlreadyExists
     case manifestInitializationFailed
+    case encoderError
 }
 
+
+
 class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
-    @Published var appState = AppState()
     var session: ARSession? = nil
     var arView: ARView? = nil
-//    let frameSubject = PassthroughSubject<ARFrame, Never>()
+    
+    @AppStorage("startingMode") var startingMode: AppMode = .Snap
+    @Published var mode: AppMode = .Snap
+    @Published var error: Bool = false
+    @Published var error_msg: String = ""
+    
+    // SETTINGS
+    @Published var arSettings = ARSettings()
+    @Published var ddsSettings = DDSSettings()
+    @Published var videoSettings = VideoSettings()
+    
+    // STATE
+    @Published var streamMode = StreamModeState()
+    @Published var snapMode = SnapModeState()
+    @Published var saveMode = SaveModeState()
+    
+    @Published var dds = DDSState()
+    @Published var ar = ARState()
+    
+    // STREAMS
+    let frame$ = PassthroughSubject<ARFrame, Never>()
     var cancellables = Set<AnyCancellable>()
-    let datasetWriter: DatasetWriter
-    let ddsWriter: DDSWriter
+    var stream_cancellables = Set<AnyCancellable>()
+    var snap_cancellables = Set<AnyCancellable>()
+    var save_cancellables = Set<AnyCancellable>()
     
-    init(datasetWriter: DatasetWriter, ddsWriter: DDSWriter) {
-        self.datasetWriter = datasetWriter
-        self.ddsWriter = ddsWriter
+    // WRITERS
+    var datasetWriter: DatasetWriter?
+    var ddsSnapWriter: DDSSnapWriter?
+    var ddsStreamWriter: DDSStreamWriter?
+    var videoEncoder: VideoEncoder?
+    
+    override init() {
         super.init()
-        self.setupObservers()
-        self.ddsWriter.setupDDS()
-    }
-    
-    func setupObservers() {
-        datasetWriter.$writerState.sink {x in self.appState.writerState = x} .store(in: &cancellables)
-        datasetWriter.$currentFrameCounter.sink { x in self.appState.numFrames = x }.store(in: &cancellables)
-        ddsWriter.$peers.sink {x in self.appState.ddsPeers = UInt32(x)}.store(in: &cancellables)
-        
-        $appState
-            .map(\.appMode)
-            .prepend(appState.appMode)
-            .removeDuplicates()
+        mode = startingMode
+        // Clean and Setup after every mode change
+        $mode
+            .prepend(mode)
+           // .removeDuplicates()
+            .scan((nil, nil)) { (previous, current) in
+                (previous.1, current)
+            }
             .sink { x in
-                switch x {
-                case .Offline:
-//                    self.appState.stream = false
-                    print("Changed to offline")
-                case .Online:
-                    print("Changed to online")
+                
+                print(x)
+                if let previous = x.0 {
+                    switch previous {
+                    case .Save: self.cleanSave()
+                    case .Stream: self.cleanStream()
+                    case .Snap: self.cleanSnap()
+                    }
                 }
+                
+                if let current = x.1 {
+                    switch current {
+                    case .Save: self.setupSave()
+                    case .Stream: self.setupStream()
+                    case .Snap: self.setupSnap()
+                    }
+                    self.startingMode = current
+                }
+                
             }
             .store(in: &cancellables)
-        
-//        frameSubject.throttle(for: 0.5, scheduler: RunLoop.main, latest: true).sink {
-//            f in
-//            if self.appState.stream && self.appState.appMode == .Online {
-//                self.ddsWriter.writeFrameToTopic(frame: f)
-//            }
-//        }.store(in: &cancellables)
     }
     
+    func setupSave() {
+        
+    }
+    func cleanSave() {
+        
+    }
+    
+    func setupStream() {
+        do {
+            streamMode = StreamModeState()
+            dds = DDSState()
+            dds.domainID = ddsSettings.domainID
+            ddsStreamWriter = try DDSStreamWriter(domainID: ddsSettings.domainID)
+            ddsStreamWriter!.peers.sink {x in self.dds.peers = UInt32(x)}.store(in: &stream_cancellables)
+            try startVideoEncoder()
+           
+            let throttleTime = videoSettings.throttleTimeMs/1000.0
+            if videoSettings.throttle {
+                frame$
+                    .throttle(for: RunLoop.SchedulerTimeType.Stride(throttleTime), scheduler: RunLoop.main, latest: true)
+                    .sink { frame in
+                        if self.streamMode.streaming {
+                            let res = self.videoEncoder!.encode(frame: frame)
+                        }
+                    }
+                    .store(in: &stream_cancellables)
+            } else {
+                frame$
+                    .sink { frame in
+                        if self.streamMode.streaming {
+                            let res = self.videoEncoder!.encode(frame: frame)
+                        }
+                    }
+                    .store(in: &stream_cancellables)
+            }
+
+            
+            ddsStreamWriter?.domain.peers$.sink {
+                x in
+                print("Forcing Keyframe on publication match")
+                self.videoEncoder!.forceKeyframe()
+            }.store(in: &stream_cancellables)
+            
+            videoEncoder?.frame$
+                .sink { frame in
+                    self.ddsStreamWriter?.writeFrameToTopic(frame: frame)
+                }
+                .store(in: &stream_cancellables)
+        }
+        catch let error {
+            videoEncoder = nil
+            self.error_msg = "\(error)"
+            self.error = true
+            cleanSnap()
+        }
+    }
+    
+    func cleanStream() {
+        videoEncoder = nil // order matters since videoEncoder will try to publish to ddsStreamWriter
+        ddsStreamWriter = nil
+        stream_cancellables = Set<AnyCancellable>()
+    }
+    
+    func setupSnap() {
+        do {
+            dds = DDSState()
+            dds.domainID = ddsSettings.domainID
+            ddsSnapWriter = try DDSSnapWriter(domainID: ddsSettings.domainID)
+            ddsSnapWriter!.peers.sink {x in self.dds.peers = UInt32(x)}.store(in: &snap_cancellables)
+        }
+        catch let error {
+            self.error_msg = "\(error)"
+            self.error = true
+            cleanSnap()
+        }
+    }
+    
+    func cleanSnap() {
+        ddsSnapWriter = nil
+        snap_cancellables = Set<AnyCancellable>()
+    }
+    
+    func setup() {
+        restartARKit()
+    }
+    
+    func restartARKit() {
+        session?.pause()
+        let configuration = createARConfiguration()
+#if !targetEnvironment(simulator)
+        session?.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+#endif
+    }
     
     func createARConfiguration() -> ARWorldTrackingConfiguration {
         let configuration = ARWorldTrackingConfiguration()
-        configuration.worldAlignment = .gravity
-        if type(of: configuration).supportsFrameSemantics(.sceneDepth) {
-            // Activate sceneDepth
-            configuration.frameSemantics = .sceneDepth
+        configuration.videoFormat = ARWorldTrackingConfiguration.supportedVideoFormats[arSettings.selectedFormatIndex]
+        configuration.worldAlignment = arSettings.worldAlignment
+        configuration.isAutoFocusEnabled = arSettings.isAutoFocusEnabled
+        if arSettings.isDepthEnabled {
+            if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+                // Activate sceneDepth
+                configuration.frameSemantics = .sceneDepth
+            }
         }
         return configuration
     }
     
-    func resetWorldOrigin() {
-        session?.pause()
-        let config = createARConfiguration()
-        session?.run(config, options: [.resetTracking])
+    func startVideoEncoder() throws {
+        guard let videoFormat = session?.configuration?.videoFormat else {
+            throw AppError.encoderError
+        }
+        
+        let width = videoFormat.imageResolution.width
+        let height = videoFormat.imageResolution.height
+        let fps = videoFormat.framesPerSecond
+        
+        videoEncoder = try VideoEncoder(width: Int(width), height: Int(height), fps: fps, settings: videoSettings)
+        
+        videoEncoder?.frame$.sink {
+            comressedFrame in
+        }.store(in: &stream_cancellables)
     }
-    
     
     func session(
         _ session: ARSession,
         didUpdate frame: ARFrame
     ) {
-//        frameSubject.send(frame)
+        frame$.send(frame)
     }
     
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
-        self.appState.trackingState = trackingStateToString(camera.trackingState)
+        self.ar.trackingState = trackingStateToString(camera.trackingState)
     }
 }
