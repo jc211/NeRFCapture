@@ -37,28 +37,11 @@ module NeRFCaptureData
       float cx;
       float cy;
       float transform_matrix[16];
+      float action;
     };
 };
 
 module VideoMessages {
-    enum EncodingType {
-        H264,
-        HEVC
-    };
-
-    @final
-    struct Extrinsics {
-        float transform_matrix[16];
-    };
-
-    @final
-    struct Intrinsics {
-        float fl_x;
-        float fl_y;
-        float cx;
-        float cy;
-    };
-
     @final
     struct PosedVideoFrame {
         @key
@@ -73,5 +56,9 @@ module VideoMessages {
         float cy;
         uint32 width;
         uint32 height;
+        boolean has_depth;
+        sequence<octet> depth_zlib;
+        uint32 depth_width;
+        uint32 depth_height;
     };
 };

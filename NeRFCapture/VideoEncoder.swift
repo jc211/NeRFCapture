@@ -33,30 +33,34 @@ public struct PosedVideoFrame {
     let timestamp: Double
 }
 
+
 enum VideoError: Error {
     case sessionNotCreated
     case parameterNotCreated
 }
+
+enum VideoSource {
+    case color
+    case depth
+}
+
 
 public class VideoEncoder {
     private var width: Int = 640
     private var height: Int = 480
     private var fps: Int = 60
     private var settings: VideoSettings?
-    
-    private var initTs: Int64 = 0
-    private var isSpsAndPpsSend = false
     private var forceKey = false
-    
+    private var source: VideoSource
     private var session: VTCompressionSession?
-    let frame$ = PassthroughSubject<PosedVideoFrame, Never>()
-    let parameterSet$ = CurrentValueSubject<Data?, Never>(nil)
+    let frame$ = PassthroughSubject<(ARFrame, Data?), Never>()
     
-    init (width: Int, height: Int, fps: Int, settings: VideoSettings) throws {
+    init (width: Int, height: Int, fps: Int, source: VideoSource, settings: VideoSettings) throws {
         self.settings = settings
         self.width = width
         self.height = height
         self.fps = fps
+        self.source = source
         
         let err = VTCompressionSessionCreate(allocator: nil, width: Int32(width), height: Int32(height),
                                              codecType: settings.codec.value, encoderSpecification: nil, imageBufferAttributes: nil,
@@ -103,9 +107,22 @@ public class VideoEncoder {
         }
 
         var flag:VTEncodeInfoFlags = VTEncodeInfoFlags()
-        var res = VTCompressionSessionEncodeFrame(
+        var pixelBuffer: CVPixelBuffer? = nil
+        switch self.source {
+        case .color:
+            pixelBuffer = frame.capturedImage
+        case .depth:
+            pixelBuffer = frame.sceneDepth?.depthMap
+        }
+        
+        if pixelBuffer == nil {
+            print("pixelBuffer nil")
+            return -1
+        }
+        
+        let res = VTCompressionSessionEncodeFrame(
             session!,
-            imageBuffer: frame.capturedImage,
+            imageBuffer:  pixelBuffer!,
             presentationTimeStamp: presentationTime,
             duration: CMTime.invalid,
             frameProperties: properties as CFDictionary?,
@@ -117,6 +134,14 @@ public class VideoEncoder {
     
     private var videoCallback: VTCompressionOutputCallback = {(outputCallbackRefCon: UnsafeMutableRawPointer?, sourceFrameRefCon: UnsafeMutableRawPointer?,
                                                                status: OSStatus, flags: VTEncodeInfoFlags, sampleBuffer: CMSampleBuffer?) in
+        
+        let encoder = Unmanaged<VideoEncoder>.fromOpaque(outputCallbackRefCon!).takeUnretainedValue()
+        let frame = Unmanaged<ARFrame>.fromOpaque(sourceFrameRefCon!).takeRetainedValue()
+        
+        if (status != noErr) {
+            print("encoding failed")
+            return
+        }
         guard let sampleBuffer = sampleBuffer else {
             print("nil buffer")
             return
@@ -125,22 +150,17 @@ public class VideoEncoder {
             print("nil pointer")
             return
         }
-        if (status != noErr) {
-            print("encoding failed")
-            return
-        }
         if (!CMSampleBufferDataIsReady(sampleBuffer)) {
             print("data is not ready")
             return
         }
         
         if (flags == VTEncodeInfoFlags.frameDropped) {
+            encoder.frame$.send((frame, nil))
             print("frame dropped")
             return
         }
         
-        let encoder = Unmanaged<VideoEncoder>.fromOpaque(outputCallbackRefCon!).takeUnretainedValue()
-        let frame = Unmanaged<ARFrame>.fromOpaque(sourceFrameRefCon!).takeRetainedValue()
         
         var res = convertBufferToAnnexB(sampleBuffer: sampleBuffer)
         guard var nalus = res else { print("Could not get NALUS"); return; }
@@ -150,19 +170,20 @@ public class VideoEncoder {
             guard let pnalus = parameter_nalus else { print("Could not get parameter NALUS"); return; }
             nalus = pnalus + nalus
         }
-        let posedVideoFrame = PosedVideoFrame(
-            isKeyframe: isKeyframe,
-            nalus: nalus,
-            width: UInt32(frame.camera.imageResolution.width),
-            height: UInt32(frame.camera.imageResolution.height),
-            flX: frame.camera.intrinsics[0, 0],
-            flY: frame.camera.intrinsics[1, 1],
-            cx: frame.camera.intrinsics[2, 0],
-            cy: frame.camera.intrinsics[2, 1],
-            xWV: frame.camera.transform,
-            timestamp: frame.timestamp
-        )
-        encoder.frame$.send(posedVideoFrame)
+        encoder.frame$.send((frame, nalus))
+//        let posedVideoFrame = PosedVideoFrame(
+//            isKeyframe: isKeyframe,
+//            nalus: nalus,
+//            width: UInt32(frame.camera.imageResolution.width),
+//            height: UInt32(frame.camera.imageResolution.height),
+//            flX: frame.camera.intrinsics[0, 0],
+//            flY: frame.camera.intrinsics[1, 1],
+//            cx: frame.camera.intrinsics[2, 0],
+//            cy: frame.camera.intrinsics[2, 1],
+//            xWV: frame.camera.transform,
+//            timestamp: frame.timestamp
+//        )
+//        encoder.frame$.send(posedVideoFrame)
     }
 }
 
@@ -220,7 +241,7 @@ func convertBufferToAnnexB(sampleBuffer: CMSampleBuffer) -> Data? {
     var lengthsToDate: Int = 0
 
     while bufferOffset < totalLength - avcHeaderLength {
-        let res = CMBlockBufferGetDataPointer(dataBuffer, atOffset: bufferOffset, lengthAtOffsetOut: &lengthAtOffset,
+        _ = CMBlockBufferGetDataPointer(dataBuffer, atOffset: bufferOffset, lengthAtOffsetOut: &lengthAtOffset,
                                               totalLengthOut: nil, dataPointerOut: &dataPointer)
         if totalLength != lengthAtOffset {
             print("Warning: Non contiguous buffer")

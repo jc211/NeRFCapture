@@ -164,15 +164,17 @@ class DatasetWriter {
         
         let frameMetadata = getFrameMetadata(frame, withDepth: useDepth)
         let rgbBuffer = pixelBufferToUIImage(pixelBuffer: frame.capturedImage)
-        let depthBuffer = useDepth ? pixelBufferToUIImage(pixelBuffer: frame.sceneDepth!.depthMap).resizeImageTo(size:  frame.camera.imageResolution) : nil
+        //let depthBuffer = useDepth ? pixelBufferToUIImage(pixelBuffer: frame.sceneDepth!.depthMap).resizeImageTo(size: frame.camera.imageResolution) : nil
+        let depthData = useDepth ? Data.from(pixelBuffer: frame.sceneDepth!.depthMap) : nil
+  
         
         DispatchQueue.global().async {
             do {
                 let rgbData = rgbBuffer.pngData()
                 try rgbData?.write(to: fileName)
                 if useDepth {
-                    let depthData = depthBuffer!.pngData()
-                    try depthData?.write(to: depthFileName)
+                    //let depthData = depthBuffer!.pngData()
+                    //try depthData?.write(to: depthFileName)
                 }
             }
             catch {

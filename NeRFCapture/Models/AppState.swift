@@ -41,6 +41,10 @@ struct DDSSettings {
             }
         }
     }
+    @AppStorage("streamPoseTopic") var streamPoseTopic: Bool =  true
+    @AppStorage("streamVideoTopic") var streamVideoTopic: Bool =  true
+    @AppStorage("snapPoseOnly") var snapPoseOnly: Bool =  false
+    @AppStorage("actionButtonEnabled") var actionButtonEnabled: Bool =  true
 }
 
 struct VideoSettings {
@@ -82,10 +86,11 @@ struct ARState {
 
 struct StreamModeState {
     var streaming = false
+    var actionButtonState: Float32 = 1.0
 }
 
 struct SnapModeState {
-    
+    var actionButtonState: Float32 = 1.0
 }
 
 struct SaveModeState {
@@ -98,7 +103,6 @@ struct DDSState {
     var peers: UInt32 = 0
     var ready = false
 }
-
 
 struct MetalState {
     var device: MTLDevice!

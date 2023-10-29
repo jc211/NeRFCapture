@@ -22,6 +22,8 @@ struct VideoSettingsView: View {
        }
        Button("Reset") {
            viewModel.mode = viewModel.mode
+           let impactMed = UIImpactFeedbackGenerator(style: .medium)
+           impactMed.impactOccurred()
        }
    }
 }
@@ -71,10 +73,15 @@ struct DDSSettingsView: View {
         //NumberTextField("Domain ID", value: $viewModel.ddsSettings.domainID)
         Stepper("Stream ID \t \(viewModel.ddsSettings.streamID)", value: $viewModel.ddsSettings.streamID)
         Stepper("Domain ID \t \(viewModel.ddsSettings.domainID)", value: $viewModel.ddsSettings.domainID)
+        Toggle("Pose Topic", isOn: $viewModel.ddsSettings.streamPoseTopic)
+        Toggle("Video Topic", isOn: $viewModel.ddsSettings.streamVideoTopic)
+        Toggle("Snap Pose Only", isOn: $viewModel.ddsSettings.snapPoseOnly)
+        Toggle("Action Button", isOn: $viewModel.ddsSettings.actionButtonEnabled)
         Button("Reset") {
             viewModel.mode = viewModel.mode
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
         }
-        
     }
 }
 
@@ -112,10 +119,11 @@ struct VideoFormatsView: View {
             if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
                 Toggle("Enable Depth", isOn: $viewModel.arSettings.isDepthEnabled)
             }
-
             
             Button("Reset ARKit") {
                 viewModel.restartARKit()
+                let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                impactMed.impactOccurred()
             }
         }
     }
@@ -129,6 +137,8 @@ struct StreamButtonsView: View {
             Spacer()
             Button(action: {
                 viewModel.restartARKit()
+                let imapct = UIImpactFeedbackGenerator(style: .medium)
+                imapct.impactOccurred()
             }) {
                 Text("Reset")
                     .padding(.horizontal, 20)
@@ -137,9 +147,14 @@ struct StreamButtonsView: View {
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
             
+            
             if !viewModel.streamMode.streaming {
                 Button(action: {
                     viewModel.streamMode.streaming = true
+                    UIApplication.shared.isIdleTimerDisabled = true
+
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
                 }) {
                     Text("Start")
                         .padding(.horizontal, 20)
@@ -151,6 +166,9 @@ struct StreamButtonsView: View {
             else {
                 Button(action: {
                     viewModel.streamMode.streaming = false
+                    UIApplication.shared.isIdleTimerDisabled = false
+                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                    impactMed.impactOccurred()
                 }) {
                     Text("Stop")
                         .padding(.horizontal, 20)
@@ -174,6 +192,8 @@ struct SnapButtonsView: View {
             Spacer()
             Button(action: {
                 viewModel.restartARKit()
+                let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                impactMed.impactOccurred()
             }) {
                 Text("Reset")
                     .padding(.horizontal, 20)
@@ -183,7 +203,12 @@ struct SnapButtonsView: View {
             .buttonBorderShape(.capsule)
             Button(action: {
                 if let frame = viewModel.session?.currentFrame {
-                    viewModel.ddsSnapWriter?.writeFrameToTopic(frame: frame)
+                    if viewModel.ddsSettings.snapPoseOnly {
+                        viewModel.ddsSnapWriter?.writePoseToTopic(frame: frame, action: viewModel.snapMode.actionButtonState)
+                    }
+                    if viewModel.ddsSettings.streamVideoTopic {
+                        viewModel.ddsSnapWriter?.writeFrameToTopic(frame: frame)
+                    }
                 }
             }) {
                 Text("Send")
@@ -207,6 +232,8 @@ struct SaveButtonsView: View {
                 
                 Button(action: {
                     viewModel.restartARKit()
+                    let impactMed = UIImpactFeedbackGenerator(style: .medium)
+                    impactMed.impactOccurred()
                 }) {
                     Text("Reset")
                         .padding(.horizontal, 20)
@@ -218,6 +245,7 @@ struct SaveButtonsView: View {
                 Button(action: {
                     do {
                         try viewModel.datasetWriter?.initializeProject()
+                        viewModel.saveMode.writerState = .SessionStarted
                     }
                     catch {
                         print("\(error)")
@@ -238,6 +266,7 @@ struct SaveButtonsView: View {
                 Spacer()
                 Button(action: {
                     viewModel.datasetWriter?.finalizeProject()
+                    viewModel.saveMode.writerState = .SessionNotStarted
                 }) {
                     Text("End")
                         .padding(.horizontal, 20)
@@ -294,6 +323,71 @@ struct SaveInformationOverlay: View {
     }
 }
 
+struct ActionButton: View {
+    @ObservedObject var viewModel: ARViewModel
+    var body: some View {
+        var actionValue = viewModel.mode == .Snap ? viewModel.snapMode.actionButtonState : viewModel.streamMode.actionButtonState
+        ZStack {
+            Text("Action \(actionValue, specifier: "%.1f")")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            /*
+            Button(action: {
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+                if viewModel.mode == .Snap {
+                    viewModel.snapMode.actionButtonState = viewModel.snapMode.actionButtonState == 1.0 ? 0.0 : 1.0
+                    
+                    if let frame = viewModel.session?.currentFrame {
+                        viewModel.ddsSnapWriter?.writePoseToTopic(frame: frame, action: viewModel.snapMode.actionButtonState)
+                    }
+                } else if viewModel.mode == .Stream {
+                    viewModel.streamMode.actionButtonState = viewModel.streamMode.actionButtonState == 1.0 ? 0.0 : 1.0
+                }
+            }) {
+                // Make button fit screen
+                if viewModel.mode == .Snap {
+                    Text("Action \(viewModel.snapMode.actionButtonState, specifier: "%.1f")")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.mode == .Stream {
+                    Text("Action \(viewModel.streamMode.actionButtonState, specifier: "%.1f")")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.clear)
+            .contentShape(Rectangle())
+             */
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 25, coordinateSpace: .local).onEnded {
+            val in
+            if viewModel.mode == .Snap {
+                viewModel.snapMode.actionButtonState = actionValue == 1.0 ? 0.0 : 1.0
+                if let frame = viewModel.session?.currentFrame {
+                    viewModel.ddsSnapWriter?.writePoseToTopic(frame: frame, action: viewModel.snapMode.actionButtonState)
+                }
+            }
+            if viewModel.mode == .Stream {
+                viewModel.streamMode.actionButtonState = actionValue == 1.0 ? 0.0 : 1.0
+            }
+            
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+        })
+        .onTapGesture {
+            if viewModel.mode == .Snap {
+                if let frame = viewModel.session?.currentFrame {
+                    viewModel.ddsSnapWriter?.writePoseToTopic(frame: frame, action: viewModel.snapMode.actionButtonState)
+                }
+                let impact = UIImpactFeedbackGenerator(style: .light)
+                impact.impactOccurred()
+            }
+        }
+    }
+}
+
 struct SettingsSheet: View {
     @ObservedObject var viewModel: ARViewModel
     @State private var showSheet: Bool = false
@@ -301,6 +395,8 @@ struct SettingsSheet: View {
         
         Button() {
             showSheet.toggle()
+            let imapct = UIImpactFeedbackGenerator(style: .light)
+            imapct.impactOccurred()
         } label: {
             Image(systemName: "gearshape.fill")
                 .imageScale(.large)
@@ -383,6 +479,17 @@ struct ContentView : View {
                         }
                     }
                     Spacer()
+                    // add invisible button on screen
+                    if viewModel.ddsSettings.actionButtonEnabled {
+                        ActionButton(viewModel: viewModel)
+                    }
+                    if viewModel.error {
+                        Label("\(viewModel.error_msg)", systemImage: "exclamationmark.triangle")
+                            .font(.system(size: 28))
+                            .bold()
+                            .foregroundColor(.red)
+                        Spacer()
+                    }
                     VStack {
                         if case .Snap = viewModel.mode {
                             SnapButtonsView(viewModel: viewModel)

@@ -11,6 +11,7 @@ import Combine
 import ARKit
 import RealityKit
 import SwiftUI
+import Compression
 
 
 enum AppError : Error {
@@ -56,10 +57,25 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
     var ddsStreamWriter: DDSStreamWriter?
     var videoEncoder: VideoEncoder?
     
+    var compressionBuffer: UnsafeMutablePointer<UInt8>
+    let bufferSize = 262144
+    let compressionAlgorithm = COMPRESSION_ZLIB
+    
     override init() {
+        compressionBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
         super.init()
         mode = startingMode
-        // Clean and Setup after every mode change
+        frame$.first().sink { _ in
+            self.setupListeners()
+        }.store(in: &cancellables)
+   }
+   
+    deinit{
+        compressionBuffer.deallocate()
+    }
+    
+    func setupListeners() {
+          // Clean and Setup after every mode change
         $mode
             .prepend(mode)
            // .removeDuplicates()
@@ -67,8 +83,9 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
                 (previous.1, current)
             }
             .sink { x in
+                self.error = false
+                self.error_msg = ""
                 
-                print(x)
                 if let previous = x.0 {
                     switch previous {
                     case .Save: self.cleanSave()
@@ -88,63 +105,118 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
                 
             }
             .store(in: &cancellables)
+       
     }
     
     func setupSave() {
-        
+        datasetWriter = DatasetWriter()
     }
     func cleanSave() {
-        
+        datasetWriter = nil
     }
     
     func setupStream() {
+        streamMode = StreamModeState()
+        // Setup DDS
         do {
-            streamMode = StreamModeState()
             dds = DDSState()
             dds.domainID = ddsSettings.domainID
             ddsStreamWriter = try DDSStreamWriter(domainID: ddsSettings.domainID)
             ddsStreamWriter!.peers.sink {x in self.dds.peers = UInt32(x)}.store(in: &stream_cancellables)
-            try startVideoEncoder()
-           
-            let throttleTime = videoSettings.throttleTimeMs/1000.0
-            if videoSettings.throttle {
-                frame$
-                    .throttle(for: RunLoop.SchedulerTimeType.Stride(throttleTime), scheduler: RunLoop.main, latest: true)
-                    .sink { frame in
-                        if self.streamMode.streaming {
-                            let res = self.videoEncoder!.encode(frame: frame)
-                        }
-                    }
-                    .store(in: &stream_cancellables)
-            } else {
-                frame$
-                    .sink { frame in
-                        if self.streamMode.streaming {
-                            let res = self.videoEncoder!.encode(frame: frame)
-                        }
-                    }
-                    .store(in: &stream_cancellables)
-            }
-
-            
-            ddsStreamWriter?.domain.peers$.sink {
-                x in
-                print("Forcing Keyframe on publication match")
-                self.videoEncoder!.forceKeyframe()
-            }.store(in: &stream_cancellables)
-            
-            videoEncoder?.frame$
-                .sink { frame in
-                    self.ddsStreamWriter?.writeFrameToTopic(frame: frame)
-                }
-                .store(in: &stream_cancellables)
+        } catch let error {
+            self.error_msg = "\(error)"
+            self.error = true
+            cleanSnap()
+            return
         }
-        catch let error {
+        
+        // Setup Video Encoder
+        do {
+            try startVideoEncoders()
+        } catch let error {
             videoEncoder = nil
             self.error_msg = "\(error)"
             self.error = true
             cleanSnap()
+            return
         }
+            
+        let throttleTime = self.videoSettings.throttleTimeMs/1000.0
+        var frame_stream = self.frame$.eraseToAnyPublisher()
+        if videoSettings.throttle {
+            frame_stream = self.frame$
+                .throttle(for: RunLoop.SchedulerTimeType.Stride(throttleTime), scheduler: RunLoop.main, latest: true).eraseToAnyPublisher()
+        }
+        
+        frame_stream
+            .sink { [self] frame in
+                guard self.streamMode.streaming else { return }
+                guard self.ddsSettings.streamPoseTopic  else { return }
+                ddsStreamWriter?.writePoseToTopic(frame: frame)
+            }
+            .store(in: &stream_cancellables)
+            
+        
+        frame_stream
+            .sink { [self] frame in
+                guard self.streamMode.streaming else { return }
+                guard self.ddsSettings.streamVideoTopic  else { return }
+                _ = self.videoEncoder!.encode(frame: frame)
+            }
+            .store(in: &stream_cancellables)
+        
+        var depthStream = frame_stream
+            .filter {_ in
+                return self.streamMode.streaming
+            }
+            .map { [self] frame in
+                return (frame, compressDepth(depthMap: frame.sceneDepth!.depthMap))
+            }
+        
+        
+        ddsStreamWriter!.domain.peers$.sink {
+            x in
+            print("Forcing Keyframe on publication match")
+            self.videoEncoder!.forceKeyframe()
+        }.store(in: &stream_cancellables)
+        
+        let videoStream = videoEncoder!.frame$.eraseToAnyPublisher()
+
+        if self.arSettings.isDepthEnabled {
+            videoStream.zip(depthStream).sink { x in
+                let frameVideo = x.0.0
+                let frameDepth = x.1.0
+                guard frameVideo == frameDepth else {
+                    print("Frames don't match")
+                    return
+                }
+            }
+            .store(in: &stream_cancellables)
+        }
+        else {
+            videoStream
+                .sink { x in
+                    print("decoded frame")
+                    let frame = x.0
+                    let nalus = x.1
+    //                self.ddsStreamWriter!.writeFrameToTopic(frame: frame)
+                }
+                .store(in: &stream_cancellables)
+            
+        }
+            
+    }
+    
+    func compressDepth(depthMap: CVPixelBuffer) -> Data {
+//        let depthWidth = CVPixelBufferGetWidth(depthMap)
+//        let depthHeight = CVPixelBufferGetHeight(depthMap)
+        let depthSize = CVPixelBufferGetDataSize(depthMap)
+        CVPixelBufferLockBaseAddress(depthMap, .readOnly)
+        let baseAddress = CVPixelBufferGetBaseAddress(depthMap)
+        let compressedSize = compression_encode_buffer(compressionBuffer, self.bufferSize, baseAddress!, depthSize, nil, compressionAlgorithm) // 10 ms, apple one is 3ms
+        CVPixelBufferUnlockBaseAddress(depthMap, .readOnly)
+        let data = Data(bytes: compressionBuffer, count: compressedSize)
+        return data
     }
     
     func cleanStream() {
@@ -154,6 +226,7 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
     }
     
     func setupSnap() {
+        snapMode = SnapModeState()
         do {
             dds = DDSState()
             dds.domainID = ddsSettings.domainID
@@ -165,6 +238,20 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
             self.error = true
             cleanSnap()
         }
+        
+        var frame_stream = self.frame$.eraseToAnyPublisher()
+        let throttleTime = self.videoSettings.throttleTimeMs/1000.0
+        if videoSettings.throttle {
+            frame_stream = self.frame$
+                .throttle(for: RunLoop.SchedulerTimeType.Stride(throttleTime), scheduler: RunLoop.main, latest: true).eraseToAnyPublisher()
+        }
+        frame_stream
+            .sink { [self] frame in
+                guard self.ddsSettings.streamPoseTopic  else { return }
+                guard !self.ddsSettings.snapPoseOnly  else { return }
+                self.ddsSnapWriter?.writePoseToTopic(frame: frame, action: self.snapMode.actionButtonState)
+            }
+            .store(in: &stream_cancellables)
     }
     
     func cleanSnap() {
@@ -198,7 +285,8 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
         return configuration
     }
     
-    func startVideoEncoder() throws {
+
+    func startVideoEncoders() throws {
         guard let videoFormat = session?.configuration?.videoFormat else {
             throw AppError.encoderError
         }
@@ -207,11 +295,11 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
         let height = videoFormat.imageResolution.height
         let fps = videoFormat.framesPerSecond
         
-        videoEncoder = try VideoEncoder(width: Int(width), height: Int(height), fps: fps, settings: videoSettings)
-        
+        videoEncoder = try VideoEncoder(width: Int(width), height: Int(height), fps: fps, source: .color, settings: videoSettings)
         videoEncoder?.frame$.sink {
             comressedFrame in
         }.store(in: &stream_cancellables)
+        
     }
     
     func session(

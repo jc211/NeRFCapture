@@ -20,7 +20,7 @@ struct ARViewContainer: UIViewRepresentable {
         let arView = ARView(frame: .zero)
 #if targetEnvironment(simulator)
 #else
-        arView.debugOptions = [.showWorldOrigin]
+        arView.debugOptions = [.showWorldOrigin, .showFeaturePoints]
         arView.session.delegate = viewModel
         viewModel.session = arView.session
         viewModel.arView = arView

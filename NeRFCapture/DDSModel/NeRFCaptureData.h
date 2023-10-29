@@ -95,6 +95,7 @@ typedef struct NeRFCaptureData_Pose
   float cx;
   float cy;
   float transform_matrix[16];
+  float action;
 } NeRFCaptureData_Pose;
 
 extern const dds_topic_descriptor_t NeRFCaptureData_Pose_desc;
@@ -105,43 +106,22 @@ extern const dds_topic_descriptor_t NeRFCaptureData_Pose_desc;
 #define NeRFCaptureData_Pose_free(d,o) \
 dds_sample_free ((d), &NeRFCaptureData_Pose_desc, (o))
 
-typedef enum VideoMessages_EncodingType
+#ifndef DDS_SEQUENCE_OCTET_DEFINED
+#define DDS_SEQUENCE_OCTET_DEFINED
+typedef struct dds_sequence_octet
 {
-  VideoMessages_H264,
-  VideoMessages_HEVC
-} VideoMessages_EncodingType;
+  uint32_t _maximum;
+  uint32_t _length;
+  uint8_t *_buffer;
+  bool _release;
+} dds_sequence_octet;
 
-#define VideoMessages_EncodingType__alloc() \
-((VideoMessages_EncodingType*) dds_alloc (sizeof (VideoMessages_EncodingType)));
+#define dds_sequence_octet__alloc() \
+((dds_sequence_octet*) dds_alloc (sizeof (dds_sequence_octet)));
 
-typedef struct VideoMessages_Extrinsics
-{
-  float transform_matrix[16];
-} VideoMessages_Extrinsics;
-
-extern const dds_topic_descriptor_t VideoMessages_Extrinsics_desc;
-
-#define VideoMessages_Extrinsics__alloc() \
-((VideoMessages_Extrinsics*) dds_alloc (sizeof (VideoMessages_Extrinsics)));
-
-#define VideoMessages_Extrinsics_free(d,o) \
-dds_sample_free ((d), &VideoMessages_Extrinsics_desc, (o))
-
-typedef struct VideoMessages_Intrinsics
-{
-  float fl_x;
-  float fl_y;
-  float cx;
-  float cy;
-} VideoMessages_Intrinsics;
-
-extern const dds_topic_descriptor_t VideoMessages_Intrinsics_desc;
-
-#define VideoMessages_Intrinsics__alloc() \
-((VideoMessages_Intrinsics*) dds_alloc (sizeof (VideoMessages_Intrinsics)));
-
-#define VideoMessages_Intrinsics_free(d,o) \
-dds_sample_free ((d), &VideoMessages_Intrinsics_desc, (o))
+#define dds_sequence_octet_allocbuf(l) \
+((uint8_t *) dds_alloc ((l) * sizeof (uint8_t)))
+#endif /* DDS_SEQUENCE_OCTET_DEFINED */
 
 #ifndef DDS_SEQUENCE_OCTET_DEFINED
 #define DDS_SEQUENCE_OCTET_DEFINED
@@ -173,6 +153,10 @@ typedef struct VideoMessages_PosedVideoFrame
   float cy;
   uint32_t width;
   uint32_t height;
+  bool has_depth;
+  dds_sequence_octet depth_zlib;
+  uint32_t depth_width;
+  uint32_t depth_height;
 } VideoMessages_PosedVideoFrame;
 
 extern const dds_topic_descriptor_t VideoMessages_PosedVideoFrame_desc;

@@ -47,7 +47,6 @@ class DDSDomain {
             <Internal>
               <MultipleReceiveThreads>false</MultipleReceiveThreads>
             </Internal>
-
         """
     }
     
@@ -237,7 +236,7 @@ func convertARFrameToMsg(frame_id: UInt32, frame: ARFrame) -> NeRFCaptureData_Ne
     return msg
 }
 
-func convertARFrameToPoseMsg(frame_id: UInt32, frame: ARFrame) -> NeRFCaptureData_Pose {
+func convertARFrameToPoseMsg(frame_id: UInt32, frame: ARFrame, action: Float32 = 1.0) -> NeRFCaptureData_Pose {
     let w = UInt32(frame.camera.imageResolution.width)
     let h = UInt32(frame.camera.imageResolution.height)
     let flX =  frame.camera.intrinsics[0, 0]
@@ -253,7 +252,8 @@ func convertARFrameToPoseMsg(frame_id: UInt32, frame: ARFrame) -> NeRFCaptureDat
         fl_y: flY,
         cx: cx,
         cy: cy,
-        transform_matrix: tupleFromTransform(frame.camera.transform)
+        transform_matrix: tupleFromTransform(frame.camera.transform),
+        action: action
     )
     
     return msg
@@ -262,17 +262,23 @@ func convertARFrameToPoseMsg(frame_id: UInt32, frame: ARFrame) -> NeRFCaptureDat
 class DDSSnapWriter {
     let domain: DDSDomain
     let framePublisher: Publisher<NeRFCaptureData_NeRFCaptureFrame>
-   // let posePublisher: Publisher<NeRFCaptureData_Pose>
+    let posePublisher: Publisher<NeRFCaptureData_Pose>
     let peers = CurrentValueSubject<UInt32, Never>(0)
     private var counter = 0
+    private var pose_counter = 0
     private var cancellable: AnyCancellable?
     
     
     
     init(domainID: Int = 0) throws {
+        let qos = dds_create_qos()
+        dds_qset_resource_limits(qos, 1 /*max samples*/, 1 /*max instances*/, 1 /*max samples per instance*/)
+        dds_qset_destination_order(qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP)
+        
         domain = DDSDomain(domainId: UInt32(domainID))
         try domain.create()
         framePublisher = try domain.createPublisher(topic: "Frames", topicDescriptor: NeRFCaptureData_NeRFCaptureFrame_desc)
+        posePublisher = try domain.createPublisher(topic: "Pose", topicDescriptor: NeRFCaptureData_Pose_desc, qos: qos)
         cancellable = domain.peers$.sink { [weak self] peers in
             self?.peers.send(peers)
         }
@@ -280,7 +286,14 @@ class DDSSnapWriter {
     
     deinit {
         framePublisher.stop()
+        posePublisher.stop()
         try? domain.destroy()
+    }
+    
+    func writePoseToTopic(frame: ARFrame, action: Float32 = 1.0) {
+        var msg = convertARFrameToPoseMsg(frame_id: UInt32(pose_counter), frame: frame, action: action)
+        pose_counter += 1
+        _ = posePublisher.publish(&msg)
     }
     
     func writeFrameToTopic(frame: ARFrame) {
@@ -318,16 +331,22 @@ func convertPosedVideoFrameToMsg(frame: PosedVideoFrame) -> VideoMessages_PosedV
         cx: frame.cx,
         cy: frame.cy,
         width: frame.width,
-        height: frame.height)
-    
+        height: frame.height,
+        has_depth: false,
+        depth_zlib: dds_sequence_octet(),
+        depth_width: 0,
+        depth_height: 0
+    )
     return msg
 }
 
 class DDSStreamWriter {
     let domain: DDSDomain
     let videoPublisher: Publisher<VideoMessages_PosedVideoFrame>
+    let posePublisher: Publisher<NeRFCaptureData_Pose>
     let peers = CurrentValueSubject<UInt32, Never>(0)
     private var counter = 0
+    private var pose_counter = 0
     private var cancellable: AnyCancellable?
     
     
@@ -339,6 +358,7 @@ class DDSStreamWriter {
         domain = DDSDomain(domainId: UInt32(domainID))
         try domain.create()
         videoPublisher = try domain.createPublisher(topic: "PosedVideo", topicDescriptor: VideoMessages_PosedVideoFrame_desc, qos: qos)
+        posePublisher = try domain.createPublisher(topic: "Pose", topicDescriptor: NeRFCaptureData_Pose_desc, qos: qos)
         cancellable = domain.peers$.sink { [weak self] peers in
             self?.peers.send(peers)
         }
@@ -346,12 +366,19 @@ class DDSStreamWriter {
     
     deinit {
         videoPublisher.stop()
+        posePublisher.stop()
         try? domain.destroy()
+    }
+    
+    func writePoseToTopic(frame: ARFrame) {
+        var msg = convertARFrameToPoseMsg(frame_id: UInt32(pose_counter), frame: frame)
+        pose_counter += 1
+        _ = posePublisher.publish(&msg)
     }
     
     func writeFrameToTopic(frame: PosedVideoFrame) {
         var msg = convertPosedVideoFrameToMsg(frame: frame)
         //print("Frame Size: \(msg.nalus._length) - Keyframe: \(msg.is_keyframe)")
-        videoPublisher.publish(&msg)
+        _ = videoPublisher.publish(&msg)
     }
 }
