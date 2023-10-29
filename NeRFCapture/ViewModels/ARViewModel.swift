@@ -78,7 +78,6 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
           // Clean and Setup after every mode change
         $mode
             .prepend(mode)
-           // .removeDuplicates()
             .scan((nil, nil)) { (previous, current) in
                 (previous.1, current)
             }
@@ -105,7 +104,6 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
                 
             }
             .store(in: &cancellables)
-       
     }
     
     func setupSave() {
@@ -173,7 +171,6 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
                 return (frame, compressDepth(depthMap: frame.sceneDepth!.depthMap))
             }
         
-        
         ddsStreamWriter!.domain.peers$.sink {
             x in
             print("Forcing Keyframe on publication match")
@@ -199,7 +196,19 @@ class ARViewModel : NSObject, ARSessionDelegate, ObservableObject {
                     print("decoded frame")
                     let frame = x.0
                     let nalus = x.1
-    //                self.ddsStreamWriter!.writeFrameToTopic(frame: frame)
+                    
+                    let posedVideoFrame = PosedVideoFrame(
+                        nalus: nalus!,
+                        width: UInt32(frame.camera.imageResolution.width),
+                        height: UInt32(frame.camera.imageResolution.height),
+                        flX: frame.camera.intrinsics[0, 0],
+                        flY: frame.camera.intrinsics[1, 1],
+                        cx: frame.camera.intrinsics[2, 0],
+                        cy: frame.camera.intrinsics[2, 1],
+                        xWV: frame.camera.transform,
+                        timestamp: frame.timestamp
+                    )
+                    self.ddsStreamWriter!.writeFrameToTopic(frame: posedVideoFrame)
                 }
                 .store(in: &stream_cancellables)
             

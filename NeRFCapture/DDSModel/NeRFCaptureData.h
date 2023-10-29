@@ -140,10 +140,9 @@ typedef struct dds_sequence_octet
 ((uint8_t *) dds_alloc ((l) * sizeof (uint8_t)))
 #endif /* DDS_SEQUENCE_OCTET_DEFINED */
 
-typedef struct VideoMessages_PosedVideoFrame
+typedef struct NeRFCaptureData_PosedVideoFrame
 {
   uint32_t stream_id;
-  bool is_keyframe;
   double timestamp;
   dds_sequence_octet nalus;
   float transform_matrix[16];
@@ -157,15 +156,15 @@ typedef struct VideoMessages_PosedVideoFrame
   dds_sequence_octet depth_zlib;
   uint32_t depth_width;
   uint32_t depth_height;
-} VideoMessages_PosedVideoFrame;
+} NeRFCaptureData_PosedVideoFrame;
 
-extern const dds_topic_descriptor_t VideoMessages_PosedVideoFrame_desc;
+extern const dds_topic_descriptor_t NeRFCaptureData_PosedVideoFrame_desc;
 
-#define VideoMessages_PosedVideoFrame__alloc() \
-((VideoMessages_PosedVideoFrame*) dds_alloc (sizeof (VideoMessages_PosedVideoFrame)));
+#define NeRFCaptureData_PosedVideoFrame__alloc() \
+((NeRFCaptureData_PosedVideoFrame*) dds_alloc (sizeof (NeRFCaptureData_PosedVideoFrame)));
 
-#define VideoMessages_PosedVideoFrame_free(d,o) \
-dds_sample_free ((d), &VideoMessages_PosedVideoFrame_desc, (o))
+#define NeRFCaptureData_PosedVideoFrame_free(d,o) \
+dds_sample_free ((d), &NeRFCaptureData_PosedVideoFrame_desc, (o))
 
 #ifdef __cplusplus
 }

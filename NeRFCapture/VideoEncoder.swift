@@ -21,7 +21,6 @@ import Combine
 import ARKit
 
 public struct PosedVideoFrame {
-    let isKeyframe: Bool
     let nalus: Data
     let width: UInt32
     let height: UInt32

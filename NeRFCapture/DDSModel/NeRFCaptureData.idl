@@ -39,14 +39,11 @@ module NeRFCaptureData
       float transform_matrix[16];
       float action;
     };
-};
-
-module VideoMessages {
+    
     @final
     struct PosedVideoFrame {
         @key
         uint32 stream_id;
-        boolean is_keyframe;
         double timestamp;
         sequence<octet> nalus;
         float transform_matrix[16];

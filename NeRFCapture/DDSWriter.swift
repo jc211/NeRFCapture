@@ -47,17 +47,18 @@ class DDSDomain {
             <Internal>
               <MultipleReceiveThreads>false</MultipleReceiveThreads>
             </Internal>
+        
+            <Tracing>
+                <Category>
+                    config
+                </Category>
+                <OutputFile>
+                    stdout
+                </OutputFile>
+            </Tracing>
         """
     }
     
-//    <Tracing>
-//        <Category>
-//            config
-//        </Category>
-//        <OutputFile>
-//            stdout
-//        </OutputFile>
-//    </Tracing>
     
     func setConfig(xml_config: String) {
         self.xmlConfig = xml_config
@@ -313,16 +314,15 @@ class DDSSnapWriter {
     }
 }
 
-func convertPosedVideoFrameToMsg(frame: PosedVideoFrame) -> VideoMessages_PosedVideoFrame {
+func convertPosedVideoFrameToMsg(frame: PosedVideoFrame) -> NeRFCaptureData_PosedVideoFrame {
     var data = dds_sequence_octet()
     data._length = UInt32(frame.nalus.count)
     var unsafePointer = frame.nalus.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> UnsafePointer<UInt8> in
         return bytes.baseAddress!.assumingMemoryBound(to: UInt8.self)
     }
     data._buffer = UnsafeMutablePointer(mutating: unsafePointer)
-    var msg = VideoMessages_PosedVideoFrame(
+    let msg = NeRFCaptureData_PosedVideoFrame(
         stream_id: 7,
-        is_keyframe: frame.isKeyframe,
         timestamp: frame.timestamp,
         nalus: data,
         transform_matrix: tupleFromTransform(frame.xWV),
@@ -342,7 +342,7 @@ func convertPosedVideoFrameToMsg(frame: PosedVideoFrame) -> VideoMessages_PosedV
 
 class DDSStreamWriter {
     let domain: DDSDomain
-    let videoPublisher: Publisher<VideoMessages_PosedVideoFrame>
+    let videoPublisher: Publisher<NeRFCaptureData_PosedVideoFrame>
     let posePublisher: Publisher<NeRFCaptureData_Pose>
     let peers = CurrentValueSubject<UInt32, Never>(0)
     private var counter = 0
@@ -353,11 +353,11 @@ class DDSStreamWriter {
     init(domainID: Int = 0) throws {
         let qos = dds_create_qos()
         dds_qset_resource_limits(qos, 1 /*max samples*/, 1 /*max instances*/, 1 /*max samples per instance*/)
-        dds_qset_destination_order(qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP)
+        // dds_qset_destination_order(qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP)
  
         domain = DDSDomain(domainId: UInt32(domainID))
         try domain.create()
-        videoPublisher = try domain.createPublisher(topic: "PosedVideo", topicDescriptor: VideoMessages_PosedVideoFrame_desc, qos: qos)
+        videoPublisher = try domain.createPublisher(topic: "PosedVideo", topicDescriptor: NeRFCaptureData_PosedVideoFrame_desc, qos: qos)
         posePublisher = try domain.createPublisher(topic: "Pose", topicDescriptor: NeRFCaptureData_Pose_desc, qos: qos)
         cancellable = domain.peers$.sink { [weak self] peers in
             self?.peers.send(peers)
