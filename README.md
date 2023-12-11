@@ -36,9 +36,18 @@ In Offline mode, clicking start initializes the dataset. Take a few images then 
 <img src="docs/assets_readme/NeRFCaptureFile1.png" height="342"/>
 <img src="docs/assets_readme/NeRFCaptureFile2.png" height="342"/>
 
+## Citation
 
 If you use this software in your research, please consider citing it. 
-
-
+```bibtex
+@misc{
+  NeRFCapture,
+  url={https://github.com/jc211/NeRFCapture},
+  journal={NeRFCapture},
+  author={Abou-Chakra, Jad},
+  year={2023},
+  month={Mar}
+} 
+```
 
 
